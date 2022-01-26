@@ -1,0 +1,99 @@
+{
+  "_type": "https://in-toto.io/Statement/v0.1",
+  "predicateType": "https://slsa.dev/provenance/v0.2",
+  "subject": [
+    {
+      "name": "ttl.sh/pxp928/webinardemo1",
+      "digest": {
+        "sha256": "18bae4d9b5d049ce78f98404df2e902c10b8be7e8f7b821ab97d9edee1b1f233"
+      }
+    }
+  ],
+  "predicate": {
+    "builder": {
+      "id": "tekton-chains"
+    },
+    "buildType": "https://tekton.dev/attestations/chains@v2",
+    "invocation": {
+      "configSource": {},
+      "parameters": [
+        "BUILDER_IMAGE={string docker.io/cnbs/sample-builder:bionic@sha256:6c03dd604503b59820fd15adbc65c0a077a47e31d404a3dcad190f3179e920b5 []}",
+        "APP_IMAGE={string ttl.sh/pxp928/webinardemo1 []}",
+        "SOURCE_SUBPATH={string apps/ruby-bundler []}",
+        "PROCESS_TYPE={string web []}",
+        "ENV_VARS={array  []}",
+        "RUN_IMAGE={string  []}",
+        "CACHE_IMAGE={string  []}",
+        "USER_ID={string 1000 []}",
+        "GROUP_ID={string 1000 []}",
+        "SOURCE_SUBPATH=[]",
+        "ENV_VARS=[]",
+        "PROCESS_TYPE=web",
+        "RUN_IMAGE=[]",
+        "CACHE_IMAGE=[]",
+        "SKIP_RESTORE=false",
+        "USER_ID=1000",
+        "GROUP_ID=1000",
+        "PLATFORM_DIR=empty-dir"
+      ]
+    },
+    "buildConfig": {
+      "steps": [
+        {
+          "entryPoint": "#!/usr/bin/env bash\nset -e\n\nif [[ \"$(workspaces.cache.bound)\" == \"true\" ]]; then\n  echo \"> Setting permissions on '$(workspaces.cache.path)'...\"\n  chown -R \"$(params.USER_ID):$(params.GROUP_ID)\" \"$(workspaces.cache.path)\"\nfi\n\nfor path in \"/tekton/home\" \"/layers\" \"$(workspaces.source.path)\"; do\n  echo \"> Setting permissions on '$path'...\"\n  chown -R \"$(params.USER_ID):$(params.GROUP_ID)\" \"$path\"\ndone\n\necho \"> Parsing additional configuration...\"\nparsing_flag=\"\"\nenvs=()\nfor arg in \"$@\"; do\n    if [[ \"$arg\" == \"--env-vars\" ]]; then\n        echo \"-> Parsing env variables...\"\n        parsing_flag=\"env-vars\"\n    elif [[ \"$parsing_flag\" == \"env-vars\" ]]; then\n        envs+=(\"$arg\")\n    fi\ndone\n\necho \"> Processing any environment variables...\"\nENV_DIR=\"/platform/env\"\n\necho \"--> Creating 'env' directory: $ENV_DIR\"\nmkdir -p \"$ENV_DIR\"\n\nfor env in \"${envs[@]}\"; do\n    IFS='=' read -r key value <<< \"$env\"\n    if [[ \"$key\" != \"\" && \"$value\" != \"\" ]]; then\n        path=\"${ENV_DIR}/${key}\"\n        echo \"--> Writing ${path}...\"\n        echo -n \"$value\" > \"$path\"\n    fi\ndone\n",
+          "arguments": [
+            "--env-vars",
+            "$(params.ENV_VARS[*])"
+          ],
+          "environment": {
+            "container": "prepare",
+            "image": "docker-pullable://bash@sha256:b208215a4655538be652b2769d82e576bc4d0a2bb132144c060efc5be8c3f5d6"
+          },
+          "annotations": null
+        },
+        {
+          "entryPoint": "/cnb/lifecycle/creator",
+          "arguments": [
+            "-app=$(workspaces.source.path)/$(params.SOURCE_SUBPATH)",
+            "-cache-dir=$(workspaces.cache.path)",
+            "-cache-image=$(params.CACHE_IMAGE)",
+            "-uid=$(params.USER_ID)",
+            "-gid=$(params.GROUP_ID)",
+            "-layers=/layers",
+            "-platform=/platform",
+            "-report=/layers/report.toml",
+            "-process-type=$(params.PROCESS_TYPE)",
+            "-skip-restore=$(params.SKIP_RESTORE)",
+            "-previous-image=$(params.APP_IMAGE)",
+            "-run-image=$(params.RUN_IMAGE)",
+            "$(params.APP_IMAGE)"
+          ],
+          "environment": {
+            "container": "create",
+            "image": "docker-pullable://cnbs/sample-builder@sha256:6c03dd604503b59820fd15adbc65c0a077a47e31d404a3dcad190f3179e920b5"
+          },
+          "annotations": null
+        },
+        {
+          "entryPoint": "#!/usr/bin/env bash\nset -e\ngrep \"digest\" /layers/report.toml | cut -d'\"' -f2 | cut -d'\"' -f2 | tr -d '\\n' | tee \"$(results.APP_IMAGE_DIGEST.path)\"\n\n# Disable shellcheck here since $() is use for variable substitution and not command execution.\n# shellcheck disable=SC2005\necho \"$(params.APP_IMAGE)\" | tee \"$(results.APP_IMAGE_URL.path)\"\n",
+          "arguments": null,
+          "environment": {
+            "container": "results",
+            "image": "docker-pullable://bash@sha256:b208215a4655538be652b2769d82e576bc4d0a2bb132144c060efc5be8c3f5d6"
+          },
+          "annotations": null
+        }
+      ]
+    },
+    "metadata": {
+      "buildStartedOn": "2022-01-17T19:34:45Z",
+      "buildFinishedOn": "2022-01-17T19:35:10Z",
+      "completeness": {
+        "parameters": false,
+        "environment": false,
+        "materials": false
+      },
+      "reproducible": false
+    }
+  }
+}
